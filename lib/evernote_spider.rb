@@ -31,15 +31,19 @@ class EvernoteSpider
     check
   end
 
+  # ノートの中身をXMLで返却
+  # XSLT使ってXMLに変換している
   def get_note_xml(note, authToken)
     raw_content = get_note_store.getNoteContent(authToken, note.guid)
     return @note2blog.transform(Nokogiri::XML(raw_content)).to_s
   end
 
+  # ノートのタグを返却
   def get_note_tags(note, authToken)
     return get_note_store.getNoteTagNames(authToken, note.guid)
   end
 
+  # ノートに添付されたやつをハッシュの配列形式で返却
   def get_note_resources(note, authToken)
     if note.resources
       return note.resources.map do |resource|
@@ -47,6 +51,7 @@ class EvernoteSpider
 
         hash = data.data.bodyHash.unpack('H*').first
 
+        # MIMEタイプを検出
         mime = case data.mime
         when 'image/png'
           'png'
@@ -72,6 +77,7 @@ class EvernoteSpider
     end
   end
 
+  # ノートブックからノートの一覧を取得
   def get_note_list(notebook, authToken, options = {})
     options = {
       "words"    => "",
@@ -111,6 +117,9 @@ class EvernoteSpider
   end
 
   private
+
+    # 以下初期化処理など
+    # 仕様通りに書いてあるって感じ
 
     def get_notebook_guid(notebook)
       case notebook

@@ -40,74 +40,10 @@ note_list.notes.each do |note|
   tags         = es.get_note_tags(note, authToken)
   xml_content  = es.get_note_xml(note, authToken)
 
-  # 取得したリソースはデータベースにぶっ込んでおくって感じ
+  # ここで、取得したリソースをデータベースにぶっ込むイメージ
+  # railsはDBからデータを取得して記事表示って感じ
   pp note, resources.delete("body"), tags, xml_content
 
 end
 
-__END__
 
-#notebooks        = es.get_notebooks
-#linked_notebooks = es.get_linked_notebooks
-#shared_notebook  = es.get_shared_notebook(linked_notebooks.first.shareKey)
-
-
-
-notebooks            = noteStore.listLinkedNotebooks(authToken)
-defaultNotebook      = notebooks[0]
-shareKey             = defaultNotebook.shareKey
-
-pp notebooks; exit 1
-
-# $nb is the linkedNotebook
-# Create a connection to the owner's shard
-userStoreUrl       = "https://#{evernoteHost}/edam/note"
-userStoreTransport = Thrift::HTTPClientTransport.new(userStoreUrl)
-noteStoreProtocol1 = Thrift::BinaryProtocol.new(noteStoreTransport);
-linkedNoteStore    = Evernote::EDAM::NoteStore::NoteStore::Client.new(noteStoreProtocol1);
-
-# Authenticating using our current access token & the sharekey of the sharedNotebook
-authResult       = noteStore.authenticateToSharedNotebook(shareKey, authToken)
-linkedNotebooks  = noteStore.getSharedNotebookByAuth(authResult.authenticationToken)
-#pp linkedNotebooks
-
-filter = Evernote::EDAM::NoteStore::NoteFilter.new
-filter.words = ""
-filter.notebookGuid = linkedNotebooks.notebookGuid
-res = noteStore.findNotes(authResult.authenticationToken, filter, 0, 100)
-
-
-note2blog = Nokogiri::XSLT(File.read('lib/note.xslt'))
-
-
-#####
-authToken = authResult.authenticationToken
-#####
-res.notes.each do |note|
-
-  if note.resources
-    note.resources.each do |resource|
-      data = noteStore.getResource(authToken, resource.guid, true, true, true, true)
-      hex = data.data.bodyHash.unpack('H*').first
-      #     ext = case data.mime
-      #             when 'image/png'
-      #               'png'
-      #             when 'image/jpeg'
-      #               'jpg'
-      #             else
-      #               raise "Unknown mime type: #{data.mime}, #{data.inspect}"
-      #             end
-      ext = File.extname(data.attributes.fileName)
-      puts "EXTENTION = #{ext}"
-      File.open("./images/#{hex}.#{ext}", 'w') {|f| f.write(data.data.body) }
-    end
-  end
-
-  tags = noteStore.getNoteTagNames(authToken, note.guid)
-  content_raw  = noteStore.getNoteContent(authToken, note.guid)
-  content_html = note2blog.transform(Nokogiri::XML(content_raw)).to_s
-
-  File.open("#{note.title}.html", "w"){|f| f.write(content_html)}
-  puts note.title, tags, content_html.toutf8
-
-end
