@@ -12,20 +12,23 @@ require "oauth/consumer"
 # Load Thrift & Evernote Ruby libraries
 require "evernote_oauth"
 
-task :default => [:get_auth_token]
+#
+require "./lib/evernote_spider.rb"
 
-desc "Retrieve access token"
-task :get_auth_token do
-  puts "retrieve access token from sandobox.evernote.com ..."
+task :default => [:get_access_token]
+
+def check_and_get_config(path = "./config.yml")
+  config = nil
 
   begin
-    config = YAML.load_file("./config.yml").fetch("evernote")
+    config = YAML.load_file(path).fetch("evernote")
   rescue
     puts "[ERROR] Please check your config.yml"
   end
+
   #
-  if !config["access_token"].nil?
-    puts "[WARNING] You already have access token in your config."
+  if config["access_token"].nil?
+    puts "[WARNING] You don't have access token in your config."
   end
 
   if config["consumer_key"].nil? || config["consumer_secret"].nil?
@@ -33,6 +36,43 @@ task :get_auth_token do
     exit
   end
 
+  config
+end
+
+desc "List notebooks"
+task :notebooks do
+  config = check_and_get_config
+
+  # Evernote API requires only access_token (No need for Consumer-*)
+  es     = EvernoteSpider.new(config["access_token"])
+
+  # Get the shared notebook's access token and get notes
+  share_key = config["shared_notebooks"].first["share_key"]
+  notebook, shared_notebook_access_token = es.get_shared_notebook(share_key)
+
+  # warn: access to shared notebooks needs another access token
+  note_list = es.get_note_list(notebook, shared_notebook_access_token)
+
+  # What is Note/NoteAttribute?
+  #   Types.Note          = cf. http://dev.evernote.com/documentation/reference/Types.html#Struct_Note
+  #   Types.NoteAttribute = cf. http://dev.evernote.com/documentation/reference/Types.html#Struct_NoteAttributes
+  note_list.notes.each do |note|
+
+    resources    = es.get_note_resources(note, shared_notebook_access_token)
+    tags         = es.get_note_tags(note, shared_notebook_access_token)
+    xml_content  = es.get_note_xml(note, shared_notebook_access_token)
+
+    # Write your code: print / insert db / etc...
+    pp note, resources.delete("body"), tags, xml_content
+  end
+
+end
+
+desc "Retrieve access token"
+task :get_access_token do
+  puts "retrieve access token from sandobox.evernote.com ..."
+
+  config = check_and_get_config
   client = EvernoteOAuth::Client.new(consumer_key: config["consumer_key"], consumer_secret: config["consumer_secret"], sandbox: true)
 
   begin
@@ -82,6 +122,5 @@ task :get_auth_token do
   rescue => e
     puts "Error obtaining temporary credentials: #{e.message}"
   end
-
 
 end

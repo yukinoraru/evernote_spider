@@ -1,6 +1,8 @@
 evernote:
-  host:
-  username:
-  password:
+  access_token:
   consumer_key:
   consumer_secret:
+
+  shared_notebooks:
+    - comment:
+      share_key:
