@@ -45,29 +45,12 @@ class EvernoteSpider
   def get_note_resources(note, auth_token)
     if note.resources
       return note.resources.map do |resource|
-        data = get_note_store.getResource(auth_token, resource.guid, true, true, true, true)
-
-        hash = data.data.bodyHash.unpack('H*').first
-
-        # MIMEタイプを検出
-        mime = case data.mime
-        when 'image/png'
-          'png'
-        when 'image/jpeg'
-          'jpg'
-        else
-          nil
-        end
-
-        extension = File.extname(data.attributes.fileName)
-        body = data.data.body
-
+        resource_data = get_note_store.getResource(auth_token, resource.guid, true, true, true, true)
         {
-          "filename" => data.attributes.fileName,
-          "body" => body,
-          "extension" => extension,
-          "mime" => mime,
-          "hash" => hash,
+            :raw      => resource,
+            :filename => resource_data.attributes.fileName,
+            :body     => resource_data.data.body,
+            :bodyHash => resource_data.data.bodyHash.unpack('H*').first
         }
       end
     else
